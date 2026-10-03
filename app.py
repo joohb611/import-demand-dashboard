@@ -7692,6 +7692,11 @@ def render_page4():
         return
     if "분쟁위험도" not in available:
         st.info(f"분쟁위험도는 {RISK_START}년부터 제공되어 {selected_year}년에는 선택 목록에서 제외했습니다.")
+    # 사용 가능한 지표 자료가 모두 있는 국가만 후보로 둡니다
+    # (자료가 빠진 국가는 카드·그래프에 제대로 표시되지 않으므로).
+    year_data = year_data.dropna(
+        subset=[P4_INDICATORS[label]["column"] for label in available]
+    )
 
     # --------------------------------------------------------
     # 1. 우선순위 · 정렬 방향 · 구간
@@ -7701,7 +7706,8 @@ def render_page4():
         with title_col:
             render_html(
                 '<div class="panel-title-inline">탐색 조건</div>'
-                '<div class="panel-note">우선순위 순서대로 정렬 · 모든 구간을 만족하는 국가만 표시</div>'
+                f'<div class="panel-note">{selected_year}년 {len(available)}개 지표 자료가 모두 있는 '
+                f'{len(year_data)}개국 기준 · 우선순위 순서대로 정렬</div>'
             )
         with mode_col:
             with st.container(key="p4_mode_box"):
@@ -7792,17 +7798,13 @@ def render_page4():
                     keep = pool[column].notna() & pool[column].between(
                         value_low - 1e-9, value_high + 1e-9)
 
-                # 앞 순위를 통과한 국가 수를 기준으로 표시하고,
-                # 이 지표 자료가 없어 빠진 국가는 따로 알려 줍니다.
                 before = len(pool)
-                missing = before - len(values)
                 pool = pool.loc[keep]
-                missing_text = f" · 자료 없음 {missing}개국 제외" if missing else ""
                 st.markdown(
                     '<div class="p4-filter-range">'
                     f'{html.escape(p4_value_text(label, value_low))} ~ '
                     f'{html.escape(p4_value_text(label, value_high))}'
-                    f'<br>{before}개국 중 {len(pool)}개국{missing_text}</div>',
+                    f'<br>{before}개국 중 {len(pool)}개국</div>',
                     unsafe_allow_html=True,
                 )
 
