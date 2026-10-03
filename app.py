@@ -7644,6 +7644,10 @@ def render_page4():
     .st-key-card_p4_filter [data-testid="stRadio"] label p {font-size: 13px !important;}
     .p4-filter-range {font-size: 12px; color: #52667D; line-height: 1.5; min-height: 36px;
         padding-left: 6px;}
+    .st-key-card_p4_filter [data-testid="stMarkdownContainer"]:has(.p4-filter-range) {
+        margin-bottom: 0 !important;
+    }
+    .p4-result-title {color: #12365e; font-size: 16px; font-weight: 700; margin: 4px 0 2px;}
     .stApp [class*="st-key-card_p4_country_"] {
         position: relative; padding: 11px 15px !important; cursor: pointer;
         transition: box-shadow .15s, border-color .15s;
@@ -7674,7 +7678,8 @@ def render_page4():
     /* 구간 기준 · 금액 축 라디오를 각 영역 오른쪽 끝에 붙입니다. */
     .st-key-p4_mode_box, [class*="st-key-p4_axis_box"] {align-items: flex-end;}
     .st-key-p4_mode_box [data-testid="stRadio"],
-    [class*="st-key-p4_axis_box"] [data-testid="stRadio"] {width: auto !important;}
+    [class*="st-key-p4_axis_box"] [data-testid="stRadio"],
+    [class*="st-key-p4_axis_box"] [data-testid="stCheckbox"] {width: auto !important;}
     .st-key-p4_mode_box [role="radiogroup"],
     [class*="st-key-p4_axis_box"] [role="radiogroup"] {justify-content: flex-end;}
     .p4-card-head .p4-card-iso {margin-left: auto; color: #6B7C90; font-size: 12px;
@@ -7686,7 +7691,7 @@ def render_page4():
     .p4-m b {color: #12365e; font-size: 13px; font-weight: 800;}
     /* 카드 목록을 오른쪽 그래프 4개(차트 300px × 2줄 + 제목·여백)와 같은 높이로 맞추고
        남는 공간은 카드 사이 간격으로 나눕니다. */
-    .st-key-p4_country_list {min-height: 804px; display: flex; flex-direction: column;
+    .st-key-p4_country_list {min-height: 783px; display: flex; flex-direction: column;
         justify-content: space-between; gap: 10px;}
     </style>""", unsafe_allow_html=True)
 
@@ -7768,17 +7773,23 @@ def render_page4():
                         low - 1e-9, high + 1e-9).sum()
                 else:
                     unit, scale = P4_INPUT_UNITS[P4_INDICATORS[label]["kind"]]
-                    min_col, max_col = st.columns(2, gap="small")
-                    with min_col:
-                        low = st.number_input(
-                            f"최소 ({unit})", value=float(values.min()) / scale,
-                            key=f"p4_min_{label}_{selected_year}",
-                        )
-                    with max_col:
-                        high = st.number_input(
-                            f"최대 ({unit})", value=float(values.max()) / scale,
-                            key=f"p4_max_{label}_{selected_year}",
-                        )
+                    data_min = float(values.min()) / scale
+                    data_max = float(values.max()) / scale
+                    digits = 3 if P4_INDICATORS[label]["kind"] == "share" else 1
+                    factor = 10 ** digits
+                    slider_min = float(np.floor(data_min * factor) / factor)
+                    slider_max = float(np.ceil(data_max * factor) / factor)
+                    if slider_max <= slider_min:
+                        slider_max = slider_min + 1 / factor
+                    step = max(round((slider_max - slider_min) / 500, digits), 1 / factor)
+                    low, high = st.slider(
+                        f"{label} 실제 값 구간 ({unit})",
+                        min_value=slider_min, max_value=slider_max,
+                        value=(slider_min, slider_max), step=float(step),
+                        format=f"%.{digits}f",
+                        key=f"p4_value_{label}_{selected_year}",
+                        label_visibility="collapsed",
+                    )
                     ranges[label] = (float(low) * scale, float(high) * scale)
                     value_low, value_high = ranges[label]
                     in_range = values.between(value_low - 1e-9, value_high + 1e-9).sum()
@@ -7812,7 +7823,10 @@ def render_page4():
         st.session_state.p4_highlight_iso = isos[0]
     active_iso = st.session_state.p4_highlight_iso
 
-    st.caption(f"{selected_year}년 · 조건을 만족하는 {total}개국 중 상위 {len(shortlist)}개")
+    render_html(
+        f'<div class="p4-result-title">{selected_year}년 · 조건을 만족하는 '
+        f'{total}개국 중 상위 {len(shortlist)}개</div>'
+    )
 
     card_colors = {
         iso: P4_COUNTRY_COLORS[i % len(P4_COUNTRY_COLORS)] for i, iso in enumerate(isos)
@@ -7886,10 +7900,7 @@ def render_page4():
                                 render_html(f'<div class="panel-title-inline">{html.escape(label)}</div>')
                             with axis_col:
                                 with st.container(key=f"p4_axis_box_{column}"):
-                                    log_axis = st.radio(
-                                        f"{label} 축", ["실제 값", "로그 축"], horizontal=True,
-                                        key=f"p4_axis_mode_{column}", label_visibility="collapsed",
-                                    ) == "로그 축"
+                                    log_axis = st.toggle("로그 축", key=f"p4_log_{column}")
                         else:
                             render_html(f'<div class="panel-title-inline">{html.escape(label)}</div>')
                         st.plotly_chart(
