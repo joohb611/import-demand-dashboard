@@ -7792,13 +7792,17 @@ def render_page4():
                     keep = pool[column].notna() & pool[column].between(
                         value_low - 1e-9, value_high + 1e-9)
 
-                before = len(values)
+                # 앞 순위를 통과한 국가 수를 기준으로 표시하고,
+                # 이 지표 자료가 없어 빠진 국가는 따로 알려 줍니다.
+                before = len(pool)
+                missing = before - len(values)
                 pool = pool.loc[keep]
+                missing_text = f" · 자료 없음 {missing}개국 제외" if missing else ""
                 st.markdown(
                     '<div class="p4-filter-range">'
                     f'{html.escape(p4_value_text(label, value_low))} ~ '
                     f'{html.escape(p4_value_text(label, value_high))}'
-                    f'<br>{before}개국 중 {len(pool)}개국</div>',
+                    f'<br>{before}개국 중 {len(pool)}개국{missing_text}</div>',
                     unsafe_allow_html=True,
                 )
 
