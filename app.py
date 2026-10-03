@@ -1897,7 +1897,11 @@ def load_integrate_raw():
         except Exception as error:
             db_error = str(error)
 
-    path = Path(__file__).resolve().parent / DATA_PATH
+    # app.py 옆에 없으면 저장소의 00_files 폴더에서 찾습니다 (배포 환경용).
+    base_dir = Path(__file__).resolve().parent
+    path = base_dir / DATA_PATH
+    if not path.exists():
+        path = base_dir / "00_files" / DATA_PATH
 
     if not path.exists():
         raise FileNotFoundError(
