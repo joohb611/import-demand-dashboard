@@ -7494,7 +7494,6 @@ P4_RANGE_MODES = ["백분위", "실제 값"]
 P4_INPUT_UNITS = {"money": ("10억 USD", 1000.0), "share": ("%", 1.0), "score": ("점", 1.0)}
 # 추출 국가 순서대로 고정 색을 줍니다. 국가 카드의 점 색과 같습니다.
 P4_COUNTRY_COLORS = ["#2563EB", "#F59E0B", "#10B981", "#8B5CF6", "#64748B"]
-P4_CHART_ORDER = [["무기 수입 점유율", "군사비"], ["GDP", "분쟁위험도"]]
 
 
 def p4_pct_col(label):
@@ -7608,9 +7607,12 @@ def p4_trend_chart(source, shortlist_isos, label, active_iso, chosen_year, log_a
         return empty_figure("추출 국가의 시계열 자료가 없습니다.", height=300)
 
     y_title = {"money": "10억 USD", "share": "%", "score": "점 (0~10)"}[kind]
+    if use_log:
+        y_title += " · 로그"
     yaxis = {"title": y_title, "fixedrange": True, "automargin": True}
     if use_log:
-        yaxis.update(type="log")
+        # 10배 간격(1, 10, 100 …)에만 눈금·격자를 둬서 로그 축 격자가 촘촘해지지 않게
+        yaxis.update(type="log", dtick=1, tickformat=",~g", minor={"showgrid": False})
     elif kind == "score":
         yaxis.update(range=[0, 10])
     else:
@@ -7886,7 +7888,9 @@ def render_page4():
                         st.rerun()
 
     with graph_col:
-        for pair in P4_CHART_ORDER:
+        # 그래프도 국가 카드 지표와 같은 순서(사용자 우선순위 → 나머지)로 배치
+        chart_order = priorities + [x for x in P4_INDICATORS if x not in priorities]
+        for pair in (chart_order[0:2], chart_order[2:4]):
             left, right = st.columns(2, gap="small")
             for container, label in zip([left, right], pair):
                 with container:
@@ -7900,7 +7904,7 @@ def render_page4():
                                 render_html(f'<div class="panel-title-inline">{html.escape(label)}</div>')
                             with axis_col:
                                 with st.container(key=f"p4_axis_box_{column}"):
-                                    log_axis = st.toggle("로그 축", key=f"p4_log_{column}")
+                                    log_axis = st.toggle("로그", key=f"p4_log_{column}")
                         else:
                             render_html(f'<div class="panel-title-inline">{html.escape(label)}</div>')
                         st.plotly_chart(
