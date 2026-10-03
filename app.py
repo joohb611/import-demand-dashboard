@@ -7675,10 +7675,12 @@ def render_page4():
     .st-key-p4_axis_box [role="radiogroup"] {justify-content: flex-end;}
     .p4-card-chip .p4-card-iso {margin-left: auto; color: #6B7C90; font-size: 12px;
         font-weight: 700; letter-spacing: 0.3px;}
-    .p4-metrics {display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 2px;}
-    .p4-m {display: flex; flex-direction: column; line-height: 1.3;}
-    .p4-m span {color: #64748B; font-size: 11px; white-space: nowrap;}
-    .p4-m b {color: #12365e; font-size: 13.5px; font-weight: 800;}
+    .p4-metrics {display: grid; grid-template-columns: 1fr 1fr; gap: 7px 14px;
+        margin: 4px 2px 2px;}
+    .p4-m {display: flex; align-items: baseline; justify-content: space-between;
+        gap: 6px; line-height: 1.3; white-space: nowrap;}
+    .p4-m span {color: #64748B; font-size: 11px;}
+    .p4-m b {color: #12365e; font-size: 12.5px; font-weight: 800;}
     </style>""", unsafe_allow_html=True)
 
     year_data = p4_candidate_pool(df, selected_year)
@@ -7784,15 +7786,7 @@ def render_page4():
     # --------------------------------------------------------
     shortlist, total = p4_filter_candidates(
         year_data, priorities, ranges, directions, range_mode, top_n=5)
-    head_col, axis_col = st.columns([4, 1], vertical_alignment="center")
-    with head_col:
-        st.markdown("#### 2. 조건에 맞는 국가와 지표별 추이")
-    with axis_col:
-        with st.container(key="p4_axis_box"):
-            axis_mode = st.radio(
-                "금액 축", ["실제 값", "로그 축"], horizontal=True,
-                key="p4_axis_mode", label_visibility="collapsed",
-            )
+    st.markdown("#### 2. 조건에 맞는 국가와 지표별 추이")
     if total == 0:
         st.warning("선택한 구간을 모두 만족하는 국가가 없습니다. 구간을 넓히거나 지표 수를 줄여 주세요.")
         return
@@ -7809,10 +7803,18 @@ def render_page4():
         st.session_state.p4_highlight_iso = isos[0]
     active_iso = st.session_state.p4_highlight_iso
 
-    st.caption(
-        f"{selected_year}년 · 조건을 만족하는 {total}개국 중 상위 {len(shortlist)}개 · "
-        "정렬 " + " → ".join(f"{p}({directions[p]})" for p in priorities)
-    )
+    summary_col, axis_col = st.columns([4, 1], vertical_alignment="bottom")
+    with summary_col:
+        st.caption(
+            f"{selected_year}년 · 조건을 만족하는 {total}개국 중 상위 {len(shortlist)}개 · "
+            "정렬 " + " → ".join(f"{p}({directions[p]})" for p in priorities)
+        )
+    with axis_col:
+        with st.container(key="p4_axis_box"):
+            axis_mode = st.radio(
+                "금액 축", ["실제 값", "로그 축"], horizontal=True,
+                key="p4_axis_mode", label_visibility="collapsed",
+            )
 
     st.markdown(
         f"""<style>
@@ -7842,10 +7844,11 @@ def render_page4():
                         '</div>',
                         unsafe_allow_html=True,
                     )
+                    metric_order = priorities + [x for x in available if x not in priorities]
                     metrics_html = "".join(
                         f'<div class="p4-m"><span>{html.escape(label)}</span>'
                         f"<b>{html.escape(p4_value_text(label, row[P4_INDICATORS[label]['column']]))}</b></div>"
-                        for label in available
+                        for label in metric_order
                     )
                     st.markdown(f'<div class="p4-metrics">{metrics_html}</div>',
                                 unsafe_allow_html=True)
