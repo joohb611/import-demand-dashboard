@@ -7645,7 +7645,7 @@ def render_page4():
     .p4-filter-range {font-size: 12px; color: #52667D; line-height: 1.5; min-height: 36px;
         padding-left: 6px;}
     .stApp [class*="st-key-card_p4_country_"] {
-        position: relative; padding: 11px 15px !important; cursor: pointer; overflow: hidden;
+        position: relative; padding: 11px 15px !important; cursor: pointer;
         transition: box-shadow .15s, border-color .15s;
     }
     /* Streamlit 글자 영역의 기본 음수 여백(-1rem)을 없애 카드 위아래 여백을 같게 */
@@ -7663,10 +7663,8 @@ def render_page4():
     .stApp [class*="st-key-card_p4_country_"] .stButton > button {
         width: 100% !important; height: 100% !important; opacity: 0; cursor: pointer;
     }
-    /* 머리띠: 카드 위쪽 끝까지 국가 색을 연하게 깔고 아래는 흰 바탕 */
     .p4-card-head {display: flex; align-items: center; gap: 9px;
-        margin: -19px -21px 8px; padding: 10px 23px 9px;
-        border-bottom: 1px solid #E6ECF3;}
+        padding: 0 2px 7px; margin-bottom: 6px; border-bottom: 1px solid #E6ECF3;}
     .p4-card-rank {color: #6B7C90; font-size: 13px; font-weight: 800;}
     .p4-card-flag {width: 30px; height: auto; border-radius: 3px;
         box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10);}
@@ -7828,8 +7826,8 @@ def render_page4():
         iso: P4_COUNTRY_COLORS[i % len(P4_COUNTRY_COLORS)] for i, iso in enumerate(isos)
     }
     card_css = "".join(
-        f".st-key-card_p4_country_{iso} .p4-card-head "
-        f"{{background: color-mix(in srgb, {color} 16%, white);}}"
+        f".stApp .stVerticalBlock.st-key-card_p4_country_{iso} "
+        f"{{border-left: 5px solid {color} !important;}}"
         for iso, color in card_colors.items()
     )
     st.markdown(
@@ -7837,6 +7835,7 @@ def render_page4():
         {card_css}
         .stApp .stVerticalBlock.st-key-card_p4_country_{active_iso} {{
             border: 2px solid #1F6FEB !important;
+            border-left: 5px solid {card_colors[active_iso]} !important;
             background: #F3F8FF !important;
         }}
         </style>""",
