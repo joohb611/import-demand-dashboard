@@ -7669,13 +7669,14 @@ def render_page4():
     .p4-card-flag {width: 30px; height: auto; border-radius: 3px;
         box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10);}
     .p4-card-name {color: #0B2545; font-size: 15px; font-weight: 800;
-        letter-spacing: -0.3px; line-height: 1.25; min-width: 0; overflow-wrap: anywhere;}
+        letter-spacing: -0.3px; line-height: 1.25; min-width: 0; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;}
     /* 구간 기준 · 금액 축 라디오를 각 영역 오른쪽 끝에 붙입니다. */
-    .st-key-p4_mode_box, .st-key-p4_axis_box {align-items: flex-end;}
+    .st-key-p4_mode_box, [class*="st-key-p4_axis_box"] {align-items: flex-end;}
     .st-key-p4_mode_box [data-testid="stRadio"],
-    .st-key-p4_axis_box [data-testid="stRadio"] {width: auto !important;}
+    [class*="st-key-p4_axis_box"] [data-testid="stRadio"] {width: auto !important;}
     .st-key-p4_mode_box [role="radiogroup"],
-    .st-key-p4_axis_box [role="radiogroup"] {justify-content: flex-end;}
+    [class*="st-key-p4_axis_box"] [role="radiogroup"] {justify-content: flex-end;}
     .p4-card-head .p4-card-iso {margin-left: auto; color: #6B7C90; font-size: 12px;
         font-weight: 700; letter-spacing: 0.3px;}
     .p4-metrics {display: grid; grid-template-columns: 1fr; gap: 2px; padding: 0 2px;}
@@ -7685,7 +7686,7 @@ def render_page4():
     .p4-m b {color: #12365e; font-size: 13px; font-weight: 800;}
     /* 카드 목록을 오른쪽 그래프 4개(차트 300px × 2줄 + 제목·여백)와 같은 높이로 맞추고
        남는 공간은 카드 사이 간격으로 나눕니다. */
-    .st-key-p4_country_list {min-height: 776px; display: flex; flex-direction: column;
+    .st-key-p4_country_list {min-height: 804px; display: flex; flex-direction: column;
         justify-content: space-between; gap: 10px;}
     </style>""", unsafe_allow_html=True)
 
@@ -7701,16 +7702,19 @@ def render_page4():
     # --------------------------------------------------------
     # 1. 우선순위 · 정렬 방향 · 구간
     # --------------------------------------------------------
-    title_col, mode_col = st.columns([4, 1], vertical_alignment="bottom")
-    with title_col:
-        st.markdown("#### 1. 지표 우선순위와 구간")
-    with mode_col:
-        with st.container(key="p4_mode_box"):
-            range_mode = st.radio(
-                "구간 기준", P4_RANGE_MODES, horizontal=True,
-                key="p4_range_mode", label_visibility="collapsed",
-            )
     with st.container(border=True, key="card_p4_filter"):
+        title_col, mode_col = st.columns([4, 1], vertical_alignment="top")
+        with title_col:
+            render_html(
+                '<div class="panel-title-inline">탐색 조건</div>'
+                '<div class="panel-note">우선순위 순서대로 정렬 · 모든 구간을 만족하는 국가만 표시</div>'
+            )
+        with mode_col:
+            with st.container(key="p4_mode_box"):
+                range_mode = st.radio(
+                    "구간 기준", P4_RANGE_MODES, horizontal=True,
+                    key="p4_range_mode", label_visibility="collapsed",
+                )
 
         defaults = [x for x in P4_DEFAULT_PRIORITY if x in available]
         slots = st.columns(4, gap="small")
@@ -7792,7 +7796,6 @@ def render_page4():
     # --------------------------------------------------------
     shortlist, total = p4_filter_candidates(
         year_data, priorities, ranges, directions, range_mode, top_n=5)
-    st.markdown("#### 2. 조건에 맞는 국가와 지표별 추이")
     if total == 0:
         st.warning("선택한 구간을 모두 만족하는 국가가 없습니다. 구간을 넓히거나 지표 수를 줄여 주세요.")
         return
@@ -7809,18 +7812,7 @@ def render_page4():
         st.session_state.p4_highlight_iso = isos[0]
     active_iso = st.session_state.p4_highlight_iso
 
-    summary_col, axis_col = st.columns([4, 1], vertical_alignment="bottom")
-    with summary_col:
-        st.caption(
-            f"{selected_year}년 · 조건을 만족하는 {total}개국 중 상위 {len(shortlist)}개 · "
-            "정렬 " + " → ".join(f"{p}({directions[p]})" for p in priorities)
-        )
-    with axis_col:
-        with st.container(key="p4_axis_box"):
-            axis_mode = st.radio(
-                "금액 축", ["실제 값", "로그 축"], horizontal=True,
-                key="p4_axis_mode", label_visibility="collapsed",
-            )
+    st.caption(f"{selected_year}년 · 조건을 만족하는 {total}개국 중 상위 {len(shortlist)}개")
 
     card_colors = {
         iso: P4_COUNTRY_COLORS[i % len(P4_COUNTRY_COLORS)] for i, iso in enumerate(isos)
@@ -7842,7 +7834,7 @@ def render_page4():
         unsafe_allow_html=True,
     )
 
-    list_col, graph_col = st.columns([1, 3.2], gap="medium")
+    list_col, graph_col = st.columns([0.87, 3.33], gap="medium")
     with list_col:
         with st.container(key="p4_country_list"):
             for rank, (_, row) in enumerate(shortlist.iterrows(), 1):
@@ -7884,11 +7876,25 @@ def render_page4():
             left, right = st.columns(2, gap="small")
             for container, label in zip([left, right], pair):
                 with container:
-                    with st.container(border=True, key=f"card_p4_chart_{P4_INDICATORS[label]['column']}"):
-                        st.markdown(f"**{label}**")
+                    column = P4_INDICATORS[label]["column"]
+                    with st.container(border=True, key=f"card_p4_chart_{column}"):
+                        log_axis = False
+                        if P4_INDICATORS[label]["kind"] == "money":
+                            # 금액 그래프만 카드 안 오른쪽 위에서 실제 값/로그 축을 고릅니다.
+                            head_col, axis_col = st.columns([1, 1.3], vertical_alignment="center")
+                            with head_col:
+                                render_html(f'<div class="panel-title-inline">{html.escape(label)}</div>')
+                            with axis_col:
+                                with st.container(key=f"p4_axis_box_{column}"):
+                                    log_axis = st.radio(
+                                        f"{label} 축", ["실제 값", "로그 축"], horizontal=True,
+                                        key=f"p4_axis_mode_{column}", label_visibility="collapsed",
+                                    ) == "로그 축"
+                        else:
+                            render_html(f'<div class="panel-title-inline">{html.escape(label)}</div>')
                         st.plotly_chart(
                             p4_trend_chart(df, isos, label, active_iso, selected_year,
-                                           log_axis=axis_mode == "로그 축"),
+                                           log_axis=log_axis),
                             use_container_width=True,
                             key=f"p4_plot_{P4_INDICATORS[label]['column']}",
                             config={"displayModeBar": False, "displaylogo": False,
