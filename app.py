@@ -7531,34 +7531,17 @@ def p4_candidate_pool(source, chosen_year):
     return data
 
 
-def p4_filter_candidates(year_data, priorities, ranges, directions, range_mode, top_n=5):
-    """구간 교집합 → 우선순위 지표 값으로 차례 정렬 → 상위 최대 N개.
-
-    ranges 는 range_mode 가 "백분위"이면 백분위(0~100),
-    "실제 값"이면 원자료 단위의 (최소, 최대)입니다.
-    """
-    if not priorities or year_data.empty:
-        return year_data.iloc[:0].copy(), 0
-
-    working = year_data
-    for label in priorities:
-        if range_mode == "백분위":
-            values = working[p4_pct_col(label)]
-        else:
-            values = working[P4_INDICATORS[label]["column"]]
-        low, high = ranges[label]
-        working = working.loc[values.notna() & values.between(low - 1e-9, high + 1e-9)]
-
-    total = len(working)
-    if working.empty:
-        return working, 0
-
-    working = working.sort_values(
+def p4_sort_candidates(pool, priorities, directions, top_n=5):
+    """조건을 통과한 국가를 우선순위 지표 값으로 차례 정렬해 상위 최대 N개를 돌려줍니다."""
+    total = len(pool)
+    if not priorities or pool.empty:
+        return pool.iloc[:0].copy(), 0
+    pool = pool.sort_values(
         [P4_INDICATORS[label]["column"] for label in priorities] + ["Country"],
         ascending=[directions[label] == "오름차순" for label in priorities] + [True],
         kind="mergesort",
     )
-    return working.head(top_n).reset_index(drop=True), total
+    return pool.head(top_n).reset_index(drop=True), total
 
 
 def p4_trend_chart(source, shortlist_isos, label, active_iso, chosen_year, log_axis):
@@ -7730,6 +7713,9 @@ def render_page4():
         defaults = [x for x in P4_DEFAULT_PRIORITY if x in available]
         slots = st.columns(4, gap="small")
         priorities, ranges, directions = [], {}, {}
+        # 앞 순위 조건을 통과한 국가만 다음 순위로 넘깁니다.
+        # 백분위는 매 순위마다 "남은 국가들 안에서" 다시 계산합니다.
+        pool = year_data
 
         for position in range(1, 5):
             remaining = [x for x in available if x not in priorities]
@@ -7756,13 +7742,21 @@ def render_page4():
 
                 priorities.append(label)
                 column = P4_INDICATORS[label]["column"]
-                values = year_data[column].dropna()
+                values = pool[column].dropna()
 
                 directions[label] = st.radio(
                     f"{label} 정렬", P4_DIRECTIONS, horizontal=True,
                     key=f"p4_direction_{label}",
                     label_visibility="collapsed",
                 )
+
+                if values.empty:
+                    pool = pool.iloc[:0]
+                    st.markdown(
+                        '<div class="p4-filter-range">앞 순위 조건을 만족하는 국가가 없습니다.</div>',
+                        unsafe_allow_html=True,
+                    )
+                    continue
 
                 if range_mode == "백분위":
                     low, high = st.slider(
@@ -7772,19 +7766,17 @@ def render_page4():
                         key=f"p4_range_{label}_{selected_year}",
                         label_visibility="collapsed",
                     )
-                    ranges[label] = (float(low), float(high))
                     value_low = values.quantile(low / 100)
                     value_high = values.quantile(high / 100)
-                    in_range = year_data[p4_pct_col(label)].between(
-                        low - 1e-9, high + 1e-9).sum()
+                    pct = pool[column].rank(pct=True, method="average") * 100
+                    keep = pct.notna() & pct.between(low - 1e-9, high + 1e-9)
                 else:
                     unit, scale = P4_INPUT_UNITS[P4_INDICATORS[label]["kind"]]
-                    data_min = float(values.min()) / scale
-                    data_max = float(values.max()) / scale
+                    all_values = year_data[column].dropna()
                     digits = 3 if P4_INDICATORS[label]["kind"] == "share" else 1
                     factor = 10 ** digits
-                    slider_min = float(np.floor(data_min * factor) / factor)
-                    slider_max = float(np.ceil(data_max * factor) / factor)
+                    slider_min = float(np.floor(float(all_values.min()) / scale * factor) / factor)
+                    slider_max = float(np.ceil(float(all_values.max()) / scale * factor) / factor)
                     if slider_max <= slider_min:
                         slider_max = slider_min + 1 / factor
                     step = max(round((slider_max - slider_min) / 500, digits), 1 / factor)
@@ -7796,23 +7788,24 @@ def render_page4():
                         key=f"p4_value_{label}_{selected_year}",
                         label_visibility="collapsed",
                     )
-                    ranges[label] = (float(low) * scale, float(high) * scale)
-                    value_low, value_high = ranges[label]
-                    in_range = values.between(value_low - 1e-9, value_high + 1e-9).sum()
+                    value_low, value_high = float(low) * scale, float(high) * scale
+                    keep = pool[column].notna() & pool[column].between(
+                        value_low - 1e-9, value_high + 1e-9)
 
+                before = len(values)
+                pool = pool.loc[keep]
                 st.markdown(
                     '<div class="p4-filter-range">'
                     f'{html.escape(p4_value_text(label, value_low))} ~ '
                     f'{html.escape(p4_value_text(label, value_high))}'
-                    f'<br>{int(in_range)}개국 포함</div>',
+                    f'<br>{before}개국 중 {len(pool)}개국</div>',
                     unsafe_allow_html=True,
                 )
 
     # --------------------------------------------------------
     # 2. 추출 국가 + 지표별 추이
     # --------------------------------------------------------
-    shortlist, total = p4_filter_candidates(
-        year_data, priorities, ranges, directions, range_mode, top_n=5)
+    shortlist, total = p4_sort_candidates(pool, priorities, directions, top_n=5)
     if total == 0:
         st.warning("선택한 구간을 모두 만족하는 국가가 없습니다. 구간을 넓히거나 지표 수를 줄여 주세요.")
         return
