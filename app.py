@@ -2199,7 +2199,7 @@ default_country = (
 default_year = 2025 if 2025 in years else max(years)
 
 if "selected_country" not in st.session_state:
-    st.session_state.selected_country = default_country
+    st.session_state.selected_country = None
 
 if "selected_year" not in st.session_state:
     st.session_state.selected_year = default_year
@@ -3741,17 +3741,6 @@ if (
 ):
     st.session_state.selected_country = default_country
 
-# 국가별 탭에서 국가를 비운 상태면 원래의 기본 선택 국가로 전환합니다.
-if (
-    st.session_state.app_page == "page1"
-    and st.session_state.overview_mode == "국가별"
-    and st.session_state.selected_country is None
-):
-    st.session_state.selected_country = default_country
-    st.session_state.country_widget_version += 1
-    st.session_state.search_widget_version += 1
-    st.rerun()
-
 with st.container(key="top_filters"):
     year_col, country_col, _ = st.columns([0.8, 2.2, 2.4], gap="medium")
 
@@ -3789,16 +3778,17 @@ with st.container(key="top_filters"):
         top_country = st.selectbox(
             "국가 선택",
             country_options,
-            index=country_options.index(
-                st.session_state.selected_country
+            index=(
+                country_options.index(st.session_state.selected_country)
                 if st.session_state.selected_country is not None
-                else COUNTRY_NONE
+                else None
             ),
+            placeholder="국가 선택 또는 입력",
             format_func=country_option_label,
             key=f"country_select_{st.session_state.country_widget_version}",
             label_visibility="collapsed",
         )
-        picked_country = None if top_country == COUNTRY_NONE else top_country
+        picked_country = None if top_country in (None, COUNTRY_NONE) else top_country
         if picked_country != st.session_state.selected_country:
             st.session_state.selected_country = picked_country
             st.session_state.map_widget_version += 1
@@ -5064,28 +5054,9 @@ def render_page1():
         current_iso = str(current_iso).upper()
 
 
-    # 선택 국가가 없거나 이 연도에 데이터가 없으면 기본 국가로 표시
-    if (
-        not current_iso
-        or current_iso not in available_isos
-    ):
-
-        default_iso = country_to_iso3.get(default_country)
-        default_iso = str(default_iso).upper() if default_iso else None
-
-        if default_iso in available_isos:
-            current_iso = default_iso
-
-        elif "ISR" in available_isos:
-            current_iso = "ISR"
-
-        elif available_isos:
-            current_iso = sorted(
-                available_isos
-            )[0]
-
-        else:
-            current_iso = None
+    # 선택 국가가 없거나 이 연도에 데이터가 없으면 선택 없이 표시합니다.
+    if current_iso not in available_isos:
+        current_iso = None
 
 
     st.session_state[
@@ -7955,11 +7926,9 @@ if st.session_state.app_page == "page1":
             # 국가가 없는 상태에서 처음 국가별 탭을 누른 경우:
             # 같은 선택 국가를 상단 필터에도 반영하고 데이터를 다시 계산합니다.
             if st.session_state.selected_country is None:
-                st.session_state.selected_country = default_country
-                st.session_state.country_widget_version += 1
-                st.session_state.search_widget_version += 1
-                st.rerun()
-            render_country_view()
+                st.info("위에서 국가를 선택하거나 입력하면 국가별 지표가 표시됩니다.")
+            else:
+                render_country_view()
         else:
             render_page1()
 
