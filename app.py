@@ -7645,8 +7645,12 @@ def render_page4():
     .p4-filter-range {font-size: 12px; color: #52667D; line-height: 1.5; min-height: 36px;
         padding-left: 6px;}
     .stApp [class*="st-key-card_p4_country_"] {
-        position: relative; padding: 9px 14px !important; cursor: pointer;
+        position: relative; padding: 11px 15px !important; cursor: pointer;
         transition: box-shadow .15s, border-color .15s;
+    }
+    /* Streamlit 글자 영역의 기본 음수 여백(-1rem)을 없애 카드 위아래 여백을 같게 */
+    .stApp [class*="st-key-card_p4_country_"] [data-testid="stMarkdownContainer"] {
+        margin-bottom: 0 !important;
     }
     .stApp [class*="st-key-card_p4_country_"]:hover {
         border-color: #9DBDF0 !important; box-shadow: 0 4px 14px rgba(31, 111, 235, .12);
@@ -7659,10 +7663,8 @@ def render_page4():
     .stApp [class*="st-key-card_p4_country_"] .stButton > button {
         width: 100% !important; height: 100% !important; opacity: 0; cursor: pointer;
     }
-    .p4-card-chip {display: flex; align-items: center; gap: 9px;
-        padding: 7px 12px 7px 9px; background: #ffffff;
-        border: 1px solid #cfe0f2; border-left: 5px solid var(--p4-color, #1F6FEB);
-        border-radius: 9px; box-shadow: 0 1px 3px rgba(16, 47, 84, 0.08);}
+    .p4-card-head {display: flex; align-items: center; gap: 9px;
+        padding: 0 2px 7px; margin-bottom: 6px; border-bottom: 1px solid #E6ECF3;}
     .p4-card-rank {color: #6B7C90; font-size: 13px; font-weight: 800;}
     .p4-card-flag {width: 30px; height: auto; border-radius: 3px;
         box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10);}
@@ -7674,10 +7676,9 @@ def render_page4():
     .st-key-p4_axis_box [data-testid="stRadio"] {width: auto !important;}
     .st-key-p4_mode_box [role="radiogroup"],
     .st-key-p4_axis_box [role="radiogroup"] {justify-content: flex-end;}
-    .p4-card-chip .p4-card-iso {margin-left: auto; color: #6B7C90; font-size: 12px;
+    .p4-card-head .p4-card-iso {margin-left: auto; color: #6B7C90; font-size: 12px;
         font-weight: 700; letter-spacing: 0.3px;}
-    .p4-metrics {display: grid; grid-template-columns: 1fr; gap: 3px;
-        margin: 2px 8px 0;}
+    .p4-metrics {display: grid; grid-template-columns: 1fr; gap: 2px; padding: 0 2px;}
     .p4-m {display: flex; align-items: baseline; justify-content: space-between;
         gap: 6px; line-height: 1.3; white-space: nowrap;}
     .p4-m span {color: #64748B; font-size: 12px;}
@@ -7685,7 +7686,7 @@ def render_page4():
     /* 카드 목록을 오른쪽 그래프 4개(차트 300px × 2줄 + 제목·여백)와 같은 높이로 맞추고
        남는 공간은 카드 사이 간격으로 나눕니다. */
     .st-key-p4_country_list {min-height: 776px; display: flex; flex-direction: column;
-        justify-content: space-between;}
+        justify-content: space-between; gap: 10px;}
     </style>""", unsafe_allow_html=True)
 
     year_data = p4_candidate_pool(df, selected_year)
@@ -7700,15 +7701,16 @@ def render_page4():
     # --------------------------------------------------------
     # 1. 우선순위 · 정렬 방향 · 구간
     # --------------------------------------------------------
-    st.markdown("#### 1. 지표 우선순위와 구간")
+    title_col, mode_col = st.columns([4, 1], vertical_alignment="bottom")
+    with title_col:
+        st.markdown("#### 1. 지표 우선순위와 구간")
+    with mode_col:
+        with st.container(key="p4_mode_box"):
+            range_mode = st.radio(
+                "구간 기준", P4_RANGE_MODES, horizontal=True,
+                key="p4_range_mode", label_visibility="collapsed",
+            )
     with st.container(border=True, key="card_p4_filter"):
-        _, mode_col = st.columns([4, 1], vertical_alignment="center")
-        with mode_col:
-            with st.container(key="p4_mode_box"):
-                range_mode = st.radio(
-                    "구간 기준", P4_RANGE_MODES, horizontal=True,
-                    key="p4_range_mode", label_visibility="collapsed",
-                )
 
         defaults = [x for x in P4_DEFAULT_PRIORITY if x in available]
         slots = st.columns(4, gap="small")
@@ -7820,10 +7822,20 @@ def render_page4():
                 key="p4_axis_mode", label_visibility="collapsed",
             )
 
+    card_colors = {
+        iso: P4_COUNTRY_COLORS[i % len(P4_COUNTRY_COLORS)] for i, iso in enumerate(isos)
+    }
+    card_css = "".join(
+        f".stApp .stVerticalBlock.st-key-card_p4_country_{iso} "
+        f"{{border-left: 5px solid {color} !important;}}"
+        for iso, color in card_colors.items()
+    )
     st.markdown(
         f"""<style>
+        {card_css}
         .stApp .stVerticalBlock.st-key-card_p4_country_{active_iso} {{
             border: 2px solid #1F6FEB !important;
+            border-left: 5px solid {card_colors[active_iso]} !important;
             background: #F3F8FF !important;
         }}
         </style>""",
@@ -7839,23 +7851,24 @@ def render_page4():
                 color = P4_COUNTRY_COLORS[(rank - 1) % len(P4_COUNTRY_COLORS)]
                 selected = iso == active_iso
                 with st.container(border=True, key=f"card_p4_country_{iso}"):
-                    st.markdown(
-                        f'<div class="p4-card-chip" style="--p4-color:{color}">'
-                        f'<span class="p4-card-rank">{rank}</span>'
-                        f'{flag_html(iso, "p4-card-flag")}'
-                        f'<span class="p4-card-name">{html.escape(country_display(name))}</span>'
-                        f'<span class="p4-card-iso">{html.escape(iso)}</span>'
-                        '</div>',
-                        unsafe_allow_html=True,
-                    )
                     metric_order = priorities + [x for x in available if x not in priorities]
                     metrics_html = "".join(
                         f'<div class="p4-m"><span>{html.escape(label)}</span>'
                         f"<b>{html.escape(p4_value_text(label, row[P4_INDICATORS[label]['column']]))}</b></div>"
                         for label in metric_order
                     )
-                    st.markdown(f'<div class="p4-metrics">{metrics_html}</div>',
-                                unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="p4-card">'
+                        '<div class="p4-card-head">'
+                        f'<span class="p4-card-rank">{rank}</span>'
+                        f'{flag_html(iso, "p4-card-flag")}'
+                        f'<span class="p4-card-name">{html.escape(country_display(name))}</span>'
+                        f'<span class="p4-card-iso">{html.escape(iso)}</span>'
+                        '</div>'
+                        f'<div class="p4-metrics">{metrics_html}</div>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
                     # 카드 전체를 덮는 투명 버튼: 카드를 누르면 그래프에서 강조됩니다.
                     if st.button(f"{rank}. {country_display(name)} 강조", key=f"p4_choose_{iso}"):
                         st.session_state.p4_highlight_iso = iso
