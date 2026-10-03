@@ -7639,18 +7639,23 @@ def render_page4():
     """우선순위와 구간으로 최대 5개국을 추출·비교하는 세 번째 화면."""
     render_page_strip("page4")
     st.markdown("""<style>
-    .st-key-p4_filter_frame [data-testid="stHorizontalBlock"] {column-gap: 1.3rem !important;}
-    .st-key-p4_filter_frame [data-testid="stSlider"] {padding: 4px 10px 0 !important;}
-    .st-key-p4_filter_frame [data-testid="stRadio"] label p {font-size: 13px !important;}
+    .st-key-card_p4_filter [data-testid="stHorizontalBlock"] {column-gap: 1.3rem !important;}
+    .st-key-card_p4_filter [data-testid="stSlider"] {padding: 4px 10px 0 !important;}
+    .st-key-card_p4_filter [data-testid="stRadio"] label p {font-size: 13px !important;}
     .p4-filter-range {font-size: 12px; color: #52667D; line-height: 1.5; min-height: 36px;}
-    .st-key-p4_country_list [data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 12px !important;
+    .stApp [class*="st-key-card_p4_country_"] {
+        position: relative; padding: 12px 14px !important; cursor: pointer;
+        transition: box-shadow .15s, border-color .15s;
     }
-    .st-key-p4_country_list .stButton > button {
-        min-height: 30px; padding: 2px 10px; font-size: 12px; font-weight: 700;
+    .stApp [class*="st-key-card_p4_country_"]:hover {
+        border-color: #9DBDF0 !important; box-shadow: 0 4px 14px rgba(31, 111, 235, .12);
     }
-    .st-key-p4_country_list button[kind="primary"] {
-        background: #1F6FEB !important; border-color: #1F6FEB !important; color: #fff !important;
+    .stApp [class*="st-key-card_p4_country_"] [data-testid="stElementContainer"]:has(.stButton) {
+        position: absolute !important; inset: 0; z-index: 3; margin: 0 !important;
+    }
+    .stApp [class*="st-key-card_p4_country_"] .stButton,
+    .stApp [class*="st-key-card_p4_country_"] .stButton > button {
+        width: 100% !important; height: 100% !important; opacity: 0; cursor: pointer;
     }
     .p4-card-chip {display: flex; align-items: center; gap: 9px;
         padding: 7px 12px 7px 9px; background: #ffffff;
@@ -7659,11 +7664,16 @@ def render_page4():
     .p4-card-rank {color: #6B7C90; font-size: 13px; font-weight: 800;}
     .p4-card-flag {width: 30px; height: auto; border-radius: 3px;
         box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10);}
-    .p4-card-name {color: #0B2545; font-size: 16px; font-weight: 800;
-        letter-spacing: -0.3px; line-height: 1.25; word-break: keep-all;}
-    .p4-card-iso {color: #6B7C90; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;}
+    .p4-card-name {color: #0B2545; font-size: 15px; font-weight: 800;
+        letter-spacing: -0.3px; line-height: 1.25; min-width: 0; overflow-wrap: anywhere;}
+    /* 구간 기준 · 금액 축 라디오를 각 영역 오른쪽 끝에 붙입니다. */
+    .st-key-p4_mode_box, .st-key-p4_axis_box {align-items: flex-end;}
+    .st-key-p4_mode_box [data-testid="stRadio"],
+    .st-key-p4_axis_box [data-testid="stRadio"] {width: auto !important;}
+    .st-key-p4_mode_box [role="radiogroup"],
+    .st-key-p4_axis_box [role="radiogroup"] {justify-content: flex-end;}
     .p4-metrics {display: grid; grid-template-columns: 1fr auto; gap: 4px 10px;
-        font-size: 12px; color: #52667D; align-items: center;}
+        font-size: 11.5px; color: #52667D; align-items: center; white-space: nowrap;}
     .p4-metrics b {color: #12365e; text-align: right; font-size: 13px;}
     </style>""", unsafe_allow_html=True)
 
@@ -7679,15 +7689,16 @@ def render_page4():
     # --------------------------------------------------------
     # 1. 우선순위 · 정렬 방향 · 구간
     # --------------------------------------------------------
-    with st.container(border=True, key="p4_filter_frame"):
-        title_col, mode_col = st.columns([3, 1.2], vertical_alignment="center")
+    with st.container(border=True, key="card_p4_filter"):
+        title_col, mode_col = st.columns([4, 1], vertical_alignment="center")
         with title_col:
             st.markdown("#### 1. 지표 우선순위와 구간")
         with mode_col:
-            range_mode = st.segmented_control(
-                "구간 기준", P4_RANGE_MODES, default=P4_RANGE_MODES[0],
-                key="p4_range_mode", label_visibility="collapsed",
-            ) or P4_RANGE_MODES[0]
+            with st.container(key="p4_mode_box"):
+                range_mode = st.radio(
+                    "구간 기준", P4_RANGE_MODES, horizontal=True,
+                    key="p4_range_mode", label_visibility="collapsed",
+                )
 
         defaults = [x for x in P4_DEFAULT_PRIORITY if x in available]
         slots = st.columns(4, gap="small")
@@ -7791,7 +7802,17 @@ def render_page4():
         "정렬 " + " → ".join(f"{p}({directions[p]})" for p in priorities)
     )
 
-    list_col, graph_col = st.columns([1.5, 2.8], gap="medium")
+    st.markdown(
+        f"""<style>
+        .stApp .stVerticalBlock.st-key-card_p4_country_{active_iso} {{
+            border: 2px solid #1F6FEB !important;
+            background: #F3F8FF !important;
+        }}
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
+    list_col, graph_col = st.columns([1.3, 3], gap="medium")
     with list_col:
         with st.container(key="p4_country_list"):
             for rank, (_, row) in enumerate(shortlist.iterrows(), 1):
@@ -7799,32 +7820,19 @@ def render_page4():
                 name = str(row["Country"])
                 color = P4_COUNTRY_COLORS[(rank - 1) % len(P4_COUNTRY_COLORS)]
                 selected = iso == active_iso
-                with st.container(border=True, key=f"p4_country_{iso}"):
-                    left, right = st.columns([1.25, 1], gap="small",
+                card_class = "p4-card-on" if selected else "p4-card-off"
+                with st.container(border=True, key=f"card_p4_country_{iso}"):
+                    left, right = st.columns([1.05, 1.1], gap="small",
                                              vertical_alignment="center")
                     with left:
                         st.markdown(
-                            f'<div class="p4-card-chip" style="--p4-color:{color}">'
+                            f'<div class="p4-card-chip {card_class}" style="--p4-color:{color}">'
                             f'<span class="p4-card-rank">{rank}</span>'
                             f'{flag_html(iso, "p4-card-flag")}'
                             f'<span class="p4-card-name">{html.escape(country_display(name))}</span>'
-                            f'<span class="p4-card-iso">{html.escape(iso)}</span>'
                             '</div>',
                             unsafe_allow_html=True,
                         )
-                        if st.button(
-                            "✓ 그래프 강조 중" if selected else "그래프에서 강조",
-                            type="primary" if selected else "secondary",
-                            use_container_width=True,
-                            key=f"p4_choose_{iso}",
-                        ):
-                            st.session_state.p4_highlight_iso = iso
-                            st.session_state.p4_last_global_country = name
-                            if name != st.session_state.selected_country:
-                                st.session_state.selected_country = name
-                                st.session_state.country_widget_version += 1
-                                st.session_state.map_widget_version += 1
-                            st.rerun()
                     with right:
                         rows_html = "".join(
                             f"<span>{html.escape(label)}</span>"
@@ -7833,25 +7841,35 @@ def render_page4():
                         )
                         st.markdown(f'<div class="p4-metrics">{rows_html}</div>',
                                     unsafe_allow_html=True)
+                    # 카드 전체를 덮는 투명 버튼: 카드를 누르면 그래프에서 강조됩니다.
+                    if st.button(f"{rank}. {country_display(name)} 강조", key=f"p4_choose_{iso}"):
+                        st.session_state.p4_highlight_iso = iso
+                        st.session_state.p4_last_global_country = name
+                        if name != st.session_state.selected_country:
+                            st.session_state.selected_country = name
+                            st.session_state.country_widget_version += 1
+                            st.session_state.map_widget_version += 1
+                        st.rerun()
 
     with graph_col:
-        note_col, axis_col = st.columns([2.6, 1.4], gap="small", vertical_alignment="center")
+        note_col, axis_col = st.columns([3, 1], gap="small", vertical_alignment="center")
         with note_col:
             active_name = country_display(
                 shortlist.loc[shortlist["Iso3"] == active_iso, "Country"].iloc[0]
             )
-            st.caption(f"굵은 선 = {active_name} · 선 색은 국가 카드 왼쪽 테두리 색과 같습니다.")
+            st.caption(f"굵은 선 = {active_name} · 국가 카드를 누르면 해당 국가가 강조됩니다.")
         with axis_col:
-            axis_mode = st.radio(
-                "금액 축", ["실제 값", "로그 축"], horizontal=True,
-                key="p4_axis_mode", label_visibility="collapsed",
-            )
+            with st.container(key="p4_axis_box"):
+                axis_mode = st.radio(
+                    "금액 축", ["실제 값", "로그 축"], horizontal=True,
+                    key="p4_axis_mode", label_visibility="collapsed",
+                )
 
         for pair in P4_CHART_ORDER:
             left, right = st.columns(2, gap="small")
             for container, label in zip([left, right], pair):
                 with container:
-                    with st.container(border=True, key=f"p4_chart_{P4_INDICATORS[label]['column']}"):
+                    with st.container(border=True, key=f"card_p4_chart_{P4_INDICATORS[label]['column']}"):
                         st.markdown(f"**{label}**")
                         st.plotly_chart(
                             p4_trend_chart(df, isos, label, active_iso, selected_year,
