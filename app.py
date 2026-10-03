@@ -7597,9 +7597,9 @@ def p4_trend_chart(source, shortlist_isos, label, active_iso, chosen_year, log_a
             name=country_display(d.iloc[0]["Country"]),
             mode="lines+markers" if emph else "lines",
             connectgaps=False,
-            line={"color": color, "width": 3.4 if emph else 1.6},
+            line={"color": color, "width": 3.4 if emph else 1.4},
             marker={"size": 5},
-            opacity=1.0 if emph else 0.55,
+            opacity=1.0 if emph else 0.38,
             customdata=hover_text,
             hovertemplate="%{fullData.name}<br>%{x}년 · %{customdata}<extra></extra>",
         ))
@@ -7652,6 +7652,7 @@ def render_page4():
     }
     .stApp [class*="st-key-card_p4_country_"] [data-testid="stElementContainer"]:has(.stButton) {
         position: absolute !important; inset: 0; z-index: 3; margin: 0 !important;
+        width: 100% !important; max-width: none !important; height: 100% !important;
     }
     .stApp [class*="st-key-card_p4_country_"] .stButton,
     .stApp [class*="st-key-card_p4_country_"] .stButton > button {
@@ -7672,9 +7673,12 @@ def render_page4():
     .st-key-p4_axis_box [data-testid="stRadio"] {width: auto !important;}
     .st-key-p4_mode_box [role="radiogroup"],
     .st-key-p4_axis_box [role="radiogroup"] {justify-content: flex-end;}
-    .p4-metrics {display: grid; grid-template-columns: 1fr auto; gap: 4px 10px;
-        font-size: 11.5px; color: #52667D; align-items: center; white-space: nowrap;}
-    .p4-metrics b {color: #12365e; text-align: right; font-size: 13px;}
+    .p4-card-chip .p4-card-iso {margin-left: auto; color: #6B7C90; font-size: 12px;
+        font-weight: 700; letter-spacing: 0.3px;}
+    .p4-metrics {display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 2px;}
+    .p4-m {display: flex; flex-direction: column; line-height: 1.3;}
+    .p4-m span {color: #64748B; font-size: 11px; white-space: nowrap;}
+    .p4-m b {color: #12365e; font-size: 13.5px; font-weight: 800;}
     </style>""", unsafe_allow_html=True)
 
     year_data = p4_candidate_pool(df, selected_year)
@@ -7780,7 +7784,15 @@ def render_page4():
     # --------------------------------------------------------
     shortlist, total = p4_filter_candidates(
         year_data, priorities, ranges, directions, range_mode, top_n=5)
-    st.markdown("#### 2. 조건에 맞는 국가와 지표별 추이")
+    head_col, axis_col = st.columns([4, 1], vertical_alignment="center")
+    with head_col:
+        st.markdown("#### 2. 조건에 맞는 국가와 지표별 추이")
+    with axis_col:
+        with st.container(key="p4_axis_box"):
+            axis_mode = st.radio(
+                "금액 축", ["실제 값", "로그 축"], horizontal=True,
+                key="p4_axis_mode", label_visibility="collapsed",
+            )
     if total == 0:
         st.warning("선택한 구간을 모두 만족하는 국가가 없습니다. 구간을 넓히거나 지표 수를 줄여 주세요.")
         return
@@ -7812,7 +7824,7 @@ def render_page4():
         unsafe_allow_html=True,
     )
 
-    list_col, graph_col = st.columns([1.3, 3], gap="medium")
+    list_col, graph_col = st.columns([1, 3.2], gap="medium")
     with list_col:
         with st.container(key="p4_country_list"):
             for rank, (_, row) in enumerate(shortlist.iterrows(), 1):
@@ -7820,27 +7832,23 @@ def render_page4():
                 name = str(row["Country"])
                 color = P4_COUNTRY_COLORS[(rank - 1) % len(P4_COUNTRY_COLORS)]
                 selected = iso == active_iso
-                card_class = "p4-card-on" if selected else "p4-card-off"
                 with st.container(border=True, key=f"card_p4_country_{iso}"):
-                    left, right = st.columns([1.05, 1.1], gap="small",
-                                             vertical_alignment="center")
-                    with left:
-                        st.markdown(
-                            f'<div class="p4-card-chip {card_class}" style="--p4-color:{color}">'
-                            f'<span class="p4-card-rank">{rank}</span>'
-                            f'{flag_html(iso, "p4-card-flag")}'
-                            f'<span class="p4-card-name">{html.escape(country_display(name))}</span>'
-                            '</div>',
-                            unsafe_allow_html=True,
-                        )
-                    with right:
-                        rows_html = "".join(
-                            f"<span>{html.escape(label)}</span>"
-                            f"<b>{html.escape(p4_value_text(label, row[P4_INDICATORS[label]['column']]))}</b>"
-                            for label in available
-                        )
-                        st.markdown(f'<div class="p4-metrics">{rows_html}</div>',
-                                    unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div class="p4-card-chip" style="--p4-color:{color}">'
+                        f'<span class="p4-card-rank">{rank}</span>'
+                        f'{flag_html(iso, "p4-card-flag")}'
+                        f'<span class="p4-card-name">{html.escape(country_display(name))}</span>'
+                        f'<span class="p4-card-iso">{html.escape(iso)}</span>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                    metrics_html = "".join(
+                        f'<div class="p4-m"><span>{html.escape(label)}</span>'
+                        f"<b>{html.escape(p4_value_text(label, row[P4_INDICATORS[label]['column']]))}</b></div>"
+                        for label in available
+                    )
+                    st.markdown(f'<div class="p4-metrics">{metrics_html}</div>',
+                                unsafe_allow_html=True)
                     # 카드 전체를 덮는 투명 버튼: 카드를 누르면 그래프에서 강조됩니다.
                     if st.button(f"{rank}. {country_display(name)} 강조", key=f"p4_choose_{iso}"):
                         st.session_state.p4_highlight_iso = iso
@@ -7852,19 +7860,6 @@ def render_page4():
                         st.rerun()
 
     with graph_col:
-        note_col, axis_col = st.columns([3, 1], gap="small", vertical_alignment="center")
-        with note_col:
-            active_name = country_display(
-                shortlist.loc[shortlist["Iso3"] == active_iso, "Country"].iloc[0]
-            )
-            st.caption(f"굵은 선 = {active_name} · 국가 카드를 누르면 해당 국가가 강조됩니다.")
-        with axis_col:
-            with st.container(key="p4_axis_box"):
-                axis_mode = st.radio(
-                    "금액 축", ["실제 값", "로그 축"], horizontal=True,
-                    key="p4_axis_mode", label_visibility="collapsed",
-                )
-
         for pair in P4_CHART_ORDER:
             left, right = st.columns(2, gap="small")
             for container, label in zip([left, right], pair):
